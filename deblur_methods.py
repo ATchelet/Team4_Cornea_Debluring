@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import skimage.restoration as ski
 import scipy.ndimage as ndimage
-from skimage.measure import compare_psnr as psnr
 
 # A method to assist with ploting of images
 def display_image(mat, axes=None, cmap=None, hide_axis=True):
@@ -214,7 +213,7 @@ def img_blurMap(img, cell_size, step_size, plot=False):
     return blurLvl_norm
 
 # A method to restore image using the Blind Estimated Gaussian Kernels method
-def img_deblur_gaussian(img, blurMap, k_size, step_size, sharpImg=None, printPSNR=False, coef=50, plot=False):
+def img_deblur_gaussian(img, blurMap, k_size, step_size, coef=50, plot=False):
     """   
     Operation: Returns the result of the deblurring img according to blurMap 
     Inputs:
@@ -222,8 +221,6 @@ def img_deblur_gaussian(img, blurMap, k_size, step_size, sharpImg=None, printPSN
         2d blur map array of the image
         integer width of the square Gaussian kernel 
         integer of the distance between each segment (needs to be smaller or equal than k_size)
-        if available a sharp version of the image for comparison and metrics
-        a boolean to calculate PSNR or not (needs a sharp image to run)
         a float coefficient to determine the linear ratio between the blur level and the kernel's standard deviation
         a boolean to plot the blur map or not
     Outputs:
@@ -245,7 +242,7 @@ def img_deblur_gaussian(img, blurMap, k_size, step_size, sharpImg=None, printPSN
             
             b = img[yStart:yStop,xStart:xStop]
             g = fspecial((k_size,k_size),coef*blurMap[yCentre,xCentre]) # generate a Gaussian kernel accordiing to bler map value
-            d = ski.wiener(b,g,balance=1,clip=False) # deblur using Wiener deconvolution
+            d = ski.wiener(b,g,balance=0.1,clip=False) # deblur using Wiener deconvolution
             deblur[yStart:yStop,xStart:xStop] = deblur[yStart:yStop,xStart:xStop] + d
             aveMap[yStart:yStop,xStart:xStop] = aveMap[yStart:yStop,xStart:xStop] + 1
 
@@ -254,23 +251,7 @@ def img_deblur_gaussian(img, blurMap, k_size, step_size, sharpImg=None, printPSN
     deblur_norm = deblur_norm - deblur_norm.min()
     deblur_norm = (deblur_norm * img.max()/deblur_norm.max()).astype(np.uint8)
 
-    if sharpImg:
-        if printPSNR:
-            # Calculate and print PSNR (not a good representation of the performance)
-            deblurErr = psnr(sharpImg, deblur_norm, 255)
-            blurErr = psnr(sharpImg, img, 255)
-            print('Deblur img PSNR:',deblurErr,'Original img PSNR:',blurErr)
-        
-        if plot:
-            fig, ax = plt.subplots(1, 3, figsize=(20, 20))
-            display_image(img, axes=ax[0])
-            ax[0].set_title('Input Image')
-            display_image(deblur_norm, axes=ax[1])
-            ax[1].set_title('Deblured')
-            display_image(sharpImg, axes=ax[2])
-            ax[2].set_title('Sharp')
-            plt.show()
-    elif plot:
+    if plot:
         fig, ax = plt.subplots(1, 2, figsize=(20, 20))
         display_image(img, axes=ax[0])
         ax[0].set_title('Input Image')
@@ -330,7 +311,7 @@ def kernel_lookup_table(imgList, blurMap, sharp, k_size, step_size, resolution=3
     return lookupTable
     
 # A method to restore image using the Kernels Lookup Table method
-def img_deblur_lookupTable(img, blurMap, lookupTable, k_size, step_size, resolution=3, sharpImg=None, printPSNR=False, plot=False):
+def img_deblur_lookupTable(img, blurMap, lookupTable, k_size, step_size, resolution=3, plot=False):
     """   
     Operation: Returns the result of the deblurring img according to the lookup table 
     Inputs:
@@ -340,8 +321,6 @@ def img_deblur_lookupTable(img, blurMap, lookupTable, k_size, step_size, resolut
         integer width of the square kernel 
         integer of the distance between each segment (needs to be smaller or equal than k_size)
         integer of the resoltion of the blur level decimal depth
-        if available a sharp version of the image for comparison and metrics
-        a boolean to calculate PSNR or not (needs a sharp image to run)
         a boolean to plot the blur map or not
     Outputs:
         2d deblured image array
@@ -374,21 +353,7 @@ def img_deblur_lookupTable(img, blurMap, lookupTable, k_size, step_size, resolut
     deblur_norm = deblur_norm - deblur_norm.min()
     deblur_norm = (deblur_norm * img.max()/deblur_norm.max()).astype(np.uint8)
 
-    if sharpImg:
-        if printPSNR:
-            deblurErr = psnr(sharpImg,deblur_norm, 255)
-            blurErr = psnr(sharpImg,img,  255)
-            print('Deblur img PSNR:',deblurErr,'Original img PSNR:',blurErr)
-        if plot:
-            fig, ax = plt.subplots(1, 3, figsize=(20, 20))
-            display_image(img, axes=ax[0])
-            ax[0].set_title('Input Image')
-            display_image(deblur_norm, axes=ax[1])
-            ax[1].set_title('Deblured')
-            display_image(sharpImg, axes=ax[2])
-            ax[2].set_title('Sharp')
-            plt.show()
-    elif plot:
+    if plot:
         fig, ax = plt.subplots(1, 2, figsize=(20, 20))
         display_image(img, axes=ax[0])
         ax[0].set_title('Input Image')
